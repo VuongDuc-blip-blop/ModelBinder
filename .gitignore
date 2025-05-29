@@ -101,3 +101,7 @@ Migrations/
 # Docker files
 **/docker-compose.*
 **/.dockerignore
+
+#Coding note
+Note
+Note/

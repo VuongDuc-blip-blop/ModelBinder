@@ -1,9 +1,9 @@
 namespace ModelBinder.Tests
 {
-    public class UnitTest1
+    public class SetupTests
     {
         [Fact]
-        public void Test1()
+        public void VerifyTestFramework()
         {
             Assert.Equal(1 + 1, 2);
 
