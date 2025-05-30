@@ -1,11 +1,21 @@
-﻿using System.Net;
+﻿using ModelBinder.Core;
+using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace ModelBinder.Http
 {
     public class HttpServer
     {
         private HttpListener _listener;
+        private readonly Dictionary<string, Func<HttpListenerContext, Task>> _handler = new();
+        private readonly Router _router;
+        private readonly RequestContext _requestContext;
+
+        public void RegisterHandler(string path, Func<HttpListenerContext, Task> handler)
+        {
+            _handler[path] = handler;
+        }
         public HttpServer(string prefix)
         {
             if (!HttpListener.IsSupported)
@@ -24,6 +34,12 @@ namespace ModelBinder.Http
                 _listener.Close();
                 Environment.Exit(0);
             };
+            _router = new Router();
+
+            RegisterHandler("/hello", _router.HelloPathHandler);
+            RegisterHandler("/user", _router.UserPathHandler);
+            RegisterHandler("Default", _router.InvalidPathHandler);
+
         }
 
         public async Task StartAsync()
@@ -55,57 +71,21 @@ namespace ModelBinder.Http
                 var response = context.Response;
 
                 var outputStream = response.OutputStream;
-                switch (request.HttpMethod)
+
+
+                string path = request.Url.AbsolutePath;
+
+                if (path == "/hello")
                 {
-                    case "GET":
-                        {
-
-                            switch (request.Url.AbsolutePath)
-                            {
-                                case "/hello":
-                                    {
-                                        byte[] buffer = Encoding.UTF8.GetBytes("Hello World!");
-                                        response.ContentLength64 = buffer.Length;
-                                        response.ContentType = "text/plain";
-                                        await outputStream.WriteAsync(buffer, 0, buffer.Length);
-                                    }
-                                    break;
-                                case "/status":
-                                    {
-                                        byte[] buffer = Encoding.UTF8.GetBytes("Server is runnning.");
-                                        response.ContentLength64 = buffer.Length;
-                                        response.ContentType = "text/plain";
-                                        await outputStream.WriteAsync(buffer, 0, buffer.Length);
-                                    }
-                                    break;
-                                case "POST":
-                                    {
-                                        byte[] buffer = Encoding.UTF8.GetBytes("POST received");
-                                        response.ContentLength64 = buffer.Length;
-                                        response.ContentType = "text/plain";
-                                        await outputStream.WriteAsync(buffer, 0, buffer.Length);
-
-                                    }
-                                    break;
-                                default:
-                                    {
-                                        response.StatusCode = (int)HttpStatusCode.NotFound;
-                                        byte[] buffer = Encoding.UTF8.GetBytes("NOT FOUND");
-                                        response.ContentLength64 = buffer.Length;
-                                        response.ContentType = "text/plain";
-                                        await outputStream.WriteAsync(buffer, 0, buffer.Length);
-                                    }
-                                    break;
-
-                            }
-                            response.Close();
-
-                        }
-                        break;
-                    default:
-                        response.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
-                        response.Close();
-                        break;
+                    await _handler["/hello"].Invoke(context);
+                }
+                else if (Regex.IsMatch(path, @"^/user(?:/(\d+))?$"))
+                {
+                    await _handler["/user"].Invoke(context);
+                }
+                else
+                {
+                    await _handler["Default"].Invoke(context);
                 }
             }
             catch (Exception ex)

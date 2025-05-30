@@ -7,4 +7,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\ModelBinder.Core\ModelBinder.Core.csproj" />
+  </ItemGroup>
+
 </Project>
