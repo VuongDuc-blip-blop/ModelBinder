@@ -8,11 +8,11 @@ namespace ModelBinder.Http
     public class HttpServer
     {
         private HttpListener _listener;
-        private readonly Dictionary<string, Func<HttpListenerContext, Task>> _handler = new();
+        private readonly Dictionary<string, Func<RequestContext, HttpListenerResponse, Task>> _handler = new();
         private readonly Router _router;
-        private readonly RequestContext _requestContext;
 
-        public void RegisterHandler(string path, Func<HttpListenerContext, Task> handler)
+
+        public void RegisterHandler(string path, Func<RequestContext, HttpListenerResponse, Task> handler)
         {
             _handler[path] = handler;
         }
@@ -38,6 +38,8 @@ namespace ModelBinder.Http
 
             RegisterHandler("/hello", _router.HelloPathHandler);
             RegisterHandler("/user", _router.UserPathHandler);
+            RegisterHandler("/test", _router.TestPathHandler);
+            RegisterHandler("/form", _router.FormPathHandler);
             RegisterHandler("Default", _router.InvalidPathHandler);
 
         }
@@ -67,25 +69,33 @@ namespace ModelBinder.Http
         {
             try
             {
-                var request = context.Request;
+                RequestContext request = new(context.Request);
                 var response = context.Response;
 
                 var outputStream = response.OutputStream;
 
 
-                string path = request.Url.AbsolutePath;
+                string path = request.Path;
 
                 if (path == "/hello")
                 {
-                    await _handler["/hello"].Invoke(context);
+                    await _handler["/hello"].Invoke(request, response);
                 }
                 else if (Regex.IsMatch(path, @"^/user(?:/(\d+))?$"))
                 {
-                    await _handler["/user"].Invoke(context);
+                    await _handler["/user"].Invoke(request, response);
+                }
+                else if (path == "/test" && request.Query.Count > 0)
+                {
+                    await _handler["/test"].Invoke(request, response);
+                }
+                else if (path == "/form")
+                {
+                    await _handler["/form"].Invoke(request, response);
                 }
                 else
                 {
-                    await _handler["Default"].Invoke(context);
+                    await _handler["Default"].Invoke(request, response);
                 }
             }
             catch (Exception ex)
